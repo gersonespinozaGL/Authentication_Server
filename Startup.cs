@@ -37,6 +37,8 @@ namespace Authentication_Server
 
             services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
             services.AddSingleton<IUserRepository, InMemoryUserRepository>();
+            services.AddSingleton<RefreshTokenGenerator>();
+            services.AddSingleton<TokenGenerator>();
             services.AddSingleton<AccessTokenGenerator>();
            
 

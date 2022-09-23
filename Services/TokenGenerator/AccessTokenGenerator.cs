@@ -11,15 +11,16 @@ namespace Services.TokenGenerator
     public class AccessTokenGenerator
     {
         private readonly AuthenticationConfiguration _configuration;
+        private readonly TokenGenerator _tokenGenerator;
 
-        public AccessTokenGenerator(AuthenticationConfiguration configuration)
+        public AccessTokenGenerator(AuthenticationConfiguration configuration, TokenGenerator tokenGenerator)
         {
             _configuration = configuration;
+            _tokenGenerator = tokenGenerator;
         }
         public string Generate(User user)
         {
-            SecurityKey key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.accessToken));
-            SigningCredentials credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
             List<Claim> claims = new List<Claim>()
             {
                 new Claim("id",user.id.ToString()),
@@ -27,14 +28,14 @@ namespace Services.TokenGenerator
                 new Claim(ClaimTypes.Name,user.username)
             };
 
-            JwtSecurityToken token = new JwtSecurityToken(
+            return _tokenGenerator.generateToken(
+                _configuration.accessTokenSecret,
                 _configuration.issuer,
                 _configuration.audience,
-                claims,
-                DateTime.UtcNow,
-                DateTime.UtcNow.AddMinutes(_configuration.accessTokenExpirationMinutes),
-                credentials);
-            return new JwtSecurityTokenHandler().WriteToken(token);
+                _configuration.accessTokenExpirationMinutes,
+                claims
+            );
+
         }
     }
 }
