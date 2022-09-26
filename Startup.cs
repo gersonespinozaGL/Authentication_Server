@@ -37,17 +37,13 @@ namespace Authentication_Server
 
             services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
             services.AddSingleton<IUserRepository, InMemoryUserRepository>();
-            services.AddSingleton<RefreshTokenGenerator>();
             services.AddSingleton<TokenGenerator>();
             services.AddSingleton<AccessTokenGenerator>();
-           
-
+            services.AddSingleton<RefreshTokenGenerator>();
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Authentication_Server", Version = "v1" });
-            });            
-            
-
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

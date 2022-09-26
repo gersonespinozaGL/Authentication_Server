@@ -18,7 +18,7 @@ namespace Services.TokenGenerator
             _configuration = configuration;
             _tokenGenerator = tokenGenerator;
         }
-        public string Generate(User user)
+        public string generateToken(User user)
         {
 
             List<Claim> claims = new List<Claim>()

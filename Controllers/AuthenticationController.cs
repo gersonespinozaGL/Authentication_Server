@@ -18,11 +18,14 @@ namespace Controllers
         private readonly IUserRepository _userRepository;
         private readonly IPasswordHasher _passwordHasher;
         private readonly AccessTokenGenerator _accessTokenGenerator;
-        public AuthenticationController(IUserRepository userRepository, IPasswordHasher passwordHasher, AccessTokenGenerator accessTokenGenerator)
+        private readonly RefreshTokenGenerator _refreshTokenGenerator;
+
+        public AuthenticationController(IUserRepository userRepository, IPasswordHasher passwordHasher, AccessTokenGenerator accessTokenGenerator, RefreshTokenGenerator refreshTokenGenerator)
         {
             _userRepository = userRepository;
             _passwordHasher = passwordHasher;
             _accessTokenGenerator = accessTokenGenerator;
+            _refreshTokenGenerator = refreshTokenGenerator;
         }
         [HttpPost]
         public async Task<IActionResult> Register([FromBody] RegisterRequest registerRequest)
@@ -86,8 +89,13 @@ namespace Controllers
                 return Unauthorized();
             }
 
-            string accessToken = _accessTokenGenerator.Generate(existingUserByUsername);
-            return Ok(new AuthenticatedUserResponse() { accessToken = accessToken });
+            string accessToken = _accessTokenGenerator.generateToken(existingUserByUsername);
+            string refreshToken = _refreshTokenGenerator.generateToken();
+            return Ok(new AuthenticatedUserResponse()
+            {
+                accessToken = accessToken,
+                refreshToken = refreshToken
+            });
         }
 
         private IActionResult BadRequestModelState()
