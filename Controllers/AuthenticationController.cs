@@ -7,7 +7,10 @@ using Models.Requests;
 using Models.Responses;
 using Services.PasswordHashers;
 using Services.TokenGenerator;
+using Services.TokenValidator;
 using Services.UserRepositories;
+using Services.RefreshTokenRepositories;
+using Services.Authenticators;
 
 namespace Controllers
 {
@@ -16,17 +19,20 @@ namespace Controllers
     public class AuthenticationController : ControllerBase
     {
         private readonly IUserRepository _userRepository;
+        private readonly IRefreshTokenRepository _refreshTokenRepository;
+        private readonly Authenticator _authenticator;
         private readonly IPasswordHasher _passwordHasher;
-        private readonly AccessTokenGenerator _accessTokenGenerator;
-        private readonly RefreshTokenGenerator _refreshTokenGenerator;
+        private readonly RefreshTokenValidator _refreshTokenValidator;
 
-        public AuthenticationController(IUserRepository userRepository, IPasswordHasher passwordHasher, AccessTokenGenerator accessTokenGenerator, RefreshTokenGenerator refreshTokenGenerator)
+        public AuthenticationController(IUserRepository userRepository, IRefreshTokenRepository refreshTokenRepository, Authenticator authenticator, IPasswordHasher passwordHasher, RefreshTokenValidator refreshTokenValidator)
         {
             _userRepository = userRepository;
+            _refreshTokenRepository = refreshTokenRepository;
+            _authenticator = authenticator;
             _passwordHasher = passwordHasher;
-            _accessTokenGenerator = accessTokenGenerator;
-            _refreshTokenGenerator = refreshTokenGenerator;
+            _refreshTokenValidator = refreshTokenValidator;
         }
+
         [HttpPost]
         public async Task<IActionResult> Register([FromBody] RegisterRequest registerRequest)
         {
@@ -38,12 +44,12 @@ namespace Controllers
             {
                 return BadRequest(new ErrorResponse("Password doesn't match with confirmation"));
             }
-            User existingUserByEmail = await _userRepository.GetByEmail(registerRequest.email);
+            User existingUserByEmail = await _userRepository.getByEmail(registerRequest.email);
             if (existingUserByEmail != null)
             {
                 return Conflict(new ErrorResponse("Email already exists"));
             }
-            User existingUserByUsername = await _userRepository.GetByUsername(registerRequest.username);
+            User existingUserByUsername = await _userRepository.getByUsername(registerRequest.username);
             if (existingUserByUsername != null)
             {
                 return Conflict(new ErrorResponse("Username already exists"));
@@ -58,7 +64,7 @@ namespace Controllers
                 passwordHash = passwordHash
             };
 
-            await _userRepository.CreateUser(registrationUser);
+            await _userRepository.createUser(registrationUser);
 
             return Ok(registrationUser);
         }
@@ -66,7 +72,7 @@ namespace Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            return Ok(await _userRepository.GetAll());
+            return Ok(await _userRepository.getAll());
         }
 
         [HttpPost("login")]
@@ -77,7 +83,7 @@ namespace Controllers
                 return BadRequestModelState();
             }
 
-            User existingUserByUsername = await _userRepository.GetByUsername(logInRequest.username);
+            User existingUserByUsername = await _userRepository.getByUsername(logInRequest.username);
             if (existingUserByUsername == null)
             {
                 return Unauthorized();
@@ -89,13 +95,38 @@ namespace Controllers
                 return Unauthorized();
             }
 
-            string accessToken = _accessTokenGenerator.generateToken(existingUserByUsername);
-            string refreshToken = _refreshTokenGenerator.generateToken();
-            return Ok(new AuthenticatedUserResponse()
+            AuthenticatedUserResponse response = await _authenticator.authenticate(existingUserByUsername);
+            return Ok(response);
+
+        }
+
+        [HttpPut("refresh")]
+        public async Task<IActionResult> Refresh([FromBody] RefreshRequest refreshRequest)
+        {
+            if (!ModelState.IsValid)
             {
-                accessToken = accessToken,
-                refreshToken = refreshToken
-            });
+                return BadRequestModelState();
+            }
+
+            bool isValid = _refreshTokenValidator.validate(refreshRequest.refreshToken);
+            if (isValid)
+            {
+                return BadRequest(new ErrorResponse("Invalid Refresh token."));
+            }
+            RefreshToken refreshTokenDTO = await _refreshTokenRepository.getByToken(refreshRequest.refreshToken);
+            if (refreshTokenDTO == null)
+            {
+                return NotFound(new ErrorResponse("Invalid Refresh token."));
+
+            }
+            User userById = await _userRepository.getById(refreshTokenDTO.userId);
+            if (userById == null)
+            {
+                return NotFound(new ErrorResponse("User not found."));
+            }
+            AuthenticatedUserResponse response = await _authenticator.authenticate(userById);
+            return Ok(response);
+
         }
 
         private IActionResult BadRequestModelState()

@@ -12,8 +12,11 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using Models;
+using Services.Authenticators;
 using Services.PasswordHashers;
+using Services.RefreshTokenRepositories;
 using Services.TokenGenerator;
+using Services.TokenValidator;
 using Services.UserRepositories;
 
 namespace Authentication_Server
@@ -32,14 +35,16 @@ namespace Authentication_Server
         {
             services.AddControllers();
             AuthenticationConfiguration authenticationConfiguration = new AuthenticationConfiguration();
-            Configuration.Bind("CustomAuthentication", authenticationConfiguration);
+            Configuration.Bind("CustomAuthentication", authenticationConfiguration);          
             services.AddSingleton(authenticationConfiguration);
-
             services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
             services.AddSingleton<IUserRepository, InMemoryUserRepository>();
+            services.AddSingleton<IRefreshTokenRepository, InMemoryRefreshTokenRepository>();
             services.AddSingleton<TokenGenerator>();
             services.AddSingleton<AccessTokenGenerator>();
             services.AddSingleton<RefreshTokenGenerator>();
+            services.AddSingleton<RefreshTokenValidator>();
+            services.AddSingleton<Authenticator>();
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Authentication_Server", Version = "v1" });
